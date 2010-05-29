@@ -4,7 +4,7 @@ use warnings;
 use parent qw/Plack::Middleware/;
 use Plack::App::File;
 
-use Plack::Util::Accessor qw( path root encoding );
+use Plack::Util::Accessor qw( path root encoding cache_control ttl );
 
 sub call {
     my $self = shift;
@@ -27,7 +27,12 @@ sub _handle_static {
         return unless $matched;
     }
 
-    $self->{file} ||= Plack::App::File->new({ root => $self->root || '.', encoding => $self->encoding });
+    $self->{file} ||= Plack::App::File->new({
+        root          => $self->root || '.',
+        encoding      => $self->encoding,
+        cache_control => $self->cache_control,
+        ttl           => $self->ttl
+    });
     local $env->{PATH_INFO} = $path; # rewrite PATH
     return $self->{file}->call($env);
 }
@@ -94,6 +99,14 @@ matches, so it will pass through when C</static/> doesn't match.
 If you want to map multiple static directories from different root,
 simply add "this", middleware multiple times with different
 configuration options.
+
+=item cache_control
+
+If defined will set a C<Cache-Control> header with this value (e.g. C<public>).
+
+=item ttl
+
+If defined will set an C<Expires> header by adding C<ttl> seconds to C<time>.
 
 =back
 

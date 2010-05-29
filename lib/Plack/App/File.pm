@@ -8,7 +8,7 @@ use Plack::Util;
 use Plack::MIME;
 use HTTP::Date;
 
-use Plack::Util::Accessor qw( root file encoding );
+use Plack::Util::Accessor qw( root file encoding ttl cache_control );
 
 sub should_handle {
     my($self, $file) = @_;
@@ -93,13 +93,23 @@ sub serve_path {
 
     Plack::Util::set_io_path($fh, Cwd::realpath($file));
 
+    my @headers = (
+        'Content-Type'   => $content_type,
+        'Content-Length' => $stat[7],
+        'Last-Modified'  => HTTP::Date::time2str( $stat[9] ),
+    );
+
+    if ( defined ( my $cache_control = $self->cache_control ) ) {
+        push @headers, "Cache-Control" => $cache_control;
+    }
+
+    if ( defined ( my $ttl = $self->ttl ) ) {
+        push @headers, Expires => HTTP::Date::time2str( time + $ttl );
+    }
+
     return [
         200,
-        [
-            'Content-Type'   => $content_type,
-            'Content-Length' => $stat[7],
-            'Last-Modified'  => HTTP::Date::time2str( $stat[9] )
-        ],
+        \@headers,
         $fh,
     ];
 }
@@ -160,6 +170,14 @@ it's not set, the application uses C<root> to find the matching file.
 =item encoding
 
 Set the file encoding for text files. Defaults to C<utf-8>.
+
+=item cache_control
+
+If defined will set a C<Cache-Control> header with this value (e.g. C<public>).
+
+=item ttl
+
+If defined will set an C<Expires> header by adding C<ttl> seconds to C<time>.
 
 =back
 

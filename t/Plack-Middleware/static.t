@@ -15,7 +15,7 @@ my $handler = builder {
     enable "Plack::Middleware::Static",
         path => sub { s!^/share/!!}, root => "share";
     enable "Plack::Middleware::Static",
-        path => qr{\.(t|PL|txt)$}i, root => '.';
+        path => qr{\.(t|PL|txt)$}i, root => '.', cache_control => "public", ttl => 3600;
     sub {
         [200, ['Content-Type' => 'text/plain', 'Content-Length' => 2], ['ok']]
     };
@@ -61,6 +61,10 @@ my %test = (
             is $res->content_type, 'text/plain';
             my($ct, $charset) = $res->content_type;
             is $charset, 'charset=utf-8';
+
+            is $res->header("Cache-Control"), "public", "have Cache-Control header";
+            ok $res->header("Expires"), "have Expires header";
+            ok $res->is_fresh( heuristic_expiry => 0 ), "TTL makes sense";
         }
 },
     app => $handler,
